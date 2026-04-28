@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: ../backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      App__RoomIdleTtlSeconds: ${ROOM_IDLE_TTL_SECONDS:-1800}
+      App__ChatMessageTtlSeconds: ${CHAT_MESSAGE_TTL_SECONDS:-45}
+      App__WaitingRoomRequestTtlSeconds: ${WAITING_ROOM_TTL_SECONDS:-300}
+      App__TempFileTtlSeconds: ${TEMP_FILE_TTL_SECONDS:-600}
+      App__CleanupSweepIntervalSeconds: ${CLEANUP_SWEEP_INTERVAL_SECONDS:-5}
+      Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-https://localhost}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://localhost}
+    restart: unless-stopped
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
